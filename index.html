@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moodboard Interativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Borel&family=Caveat&family=Roboto+Mono&family=Kalam&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #e5e7eb;
+            --text-muted-color: #9ca3af;
+            --light-effect-color: rgba(79, 70, 229, 0.2);
+            --modal-bg: rgba(29, 39, 59, 0.6);
+            --scrollbar-track: #111827;
+            --scrollbar-thumb: #6b7280; /* Cinza mais claro */
+            --image-hover-shadow: 0 0 5px rgba(99, 102, 241, 0.8), 0 0 10px rgba(99, 102, 241, 0.6), 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+
+        body.light-mode {
+            --bg-color: #f5f5f4; /* Off-white (stone-100) */
+            --text-color: #1c1917; /* stone-900 */
+            --text-muted-color: #6b7280; /* gray-500 */
+            --light-effect-color: rgba(100, 116, 139, 0.2); /* slate-500 */
+            --modal-bg: rgba(255, 255, 255, 0.6);
+            --scrollbar-track: #e7e5e4; /* stone-200 */
+            --scrollbar-thumb: #a8a29e; /* stone-400 */
+            --image-hover-shadow: 0 0 15px rgba(100, 116, 139, 0.5);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .font-borel {
+            font-family: 'Borel', cursive;
+        }
+
+        #moodboard-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #moodboard-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 0;
+        }
+
+        #moodboard-container::before {
+            content: '';
+            position: absolute;
+            left: var(--mouse-x, -500px);
+            top: var(--mouse-y, -500px);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--light-effect-color) 0%, rgba(79, 70, 229, 0) 70%);
+            transform: translate(-50%, -50%);
+            transition: left 0.3s ease-out, top 0.3s ease-out;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        #moodboard-track {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .moodboard-item {
+            position: absolute; 
+            transition: transform 0.3s ease, box-shadow 0.3s ease, top 0.4s ease, left 0.4s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            min-width: 150px;
+            min-height: 150px;
+            cursor: grab;
+        }
+        .moodboard-item:hover {
+            z-index: 20;
+            box-shadow: var(--image-hover-shadow);
+        }
+        
+        .moodboard-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            transition: none;
+            z-index: 999;
+        }
+        
+        .action-buttons {
+             position: absolute;
+             top: 8px;
+             right: 8px;
+             display: flex;
+             flex-direction: column;
+             gap: 8px;
+             opacity: 0;
+             transition: opacity 0.2s ease;
+             z-index: 30;
+        }
+        .moodboard-item:hover .action-buttons {
+             opacity: 1;
+        }
+        .action-buttons button {
+            background-color: rgba(0,0,0,0.6);
+            border-radius: 9999px;
+            padding: 6px;
+        }
+         .action-buttons button:hover {
+            background-color: rgba(0,0,0,0.8);
+         }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        
+        .btn-glass {
+            background: rgba(30, 30, 30, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+        .btn-glass:hover:not(:disabled) {
+             background: rgba(50, 50, 50, 0.6);
+             border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-glass {
+            background: var(--modal-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .gemini-response { white-space: pre-wrap; }
+        .loader {
+            border: 4px solid #4b5563;
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #lava-background {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            opacity: 0.03;
+        }
+        #lava-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            filter: blur(40px) contrast(20);
+            background-color: #000;
+        }
+        #glass-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        
+        .notepad {
+            color: #3f3f46;
+            padding: 1rem;
+            resize: both;
+            overflow: auto;
+            border-radius: 0.5rem;
+        }
+        .notepad-textarea {
+            width: 100%;
+            height: calc(100% - 40px);
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+        }
+        .notepad-controls {
+            height: 40px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .notepad-controls select, .notepad-controls input[type="color"] {
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-size: 12px;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            border: none;
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px;}
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center">
+
+    <!-- Tela Inicial -->
+    <div id="upload-screen" class="text-center w-full h-full flex flex-col items-center justify-center relative">
+        <div id="lava-background">
+            <canvas id="lava-canvas"></canvas>
+            <div id="glass-overlay"></div>
+        </div>
+        <button id="theme-toggle-initial" class="btn-glass absolute top-4 left-4 p-2 rounded-full"></button>
+        <div class="relative z-10">
+            <h1 class="font-borel text-5xl text-theme mb-2">Moodboard</h1>
+            <p class="text-sm text-gray-400">by olucz vs. beta 0.1</p>
+            <button id="upload-button" class="mt-8 bg-transparent hover:bg-gray-500/20 border-2 border-gray-500 text-gray-500 font-bold py-3 px-6 rounded-full transition-colors shadow-lg">
+                Subir Imagens
+            </button>
+        </div>
+    </div>
+
+    <!-- Moodboard -->
+    <div id="moodboard-container" class="hidden w-full h-full">
+        <!-- Barra de Ferramentas Superior -->
+        <header class="absolute top-0 left-0 right-0 p-3 flex justify-between items-center z-20 glass-menu">
+             <div class="flex items-center space-x-4">
+                <button id="theme-toggle-main" class="btn-glass p-2 rounded-full"></button>
+                <div class="flex items-baseline space-x-2">
+                    <button id="home-button" class="font-borel text-xl text-white hover:opacity-80 transition-opacity">Moodboard</button>
+                    <p class="text-xs text-gray-400">by olucz vs. beta 0.1</p>
+                </div>
+             </div>
+             <div class="hidden md:flex space-x-2">
+                <button id="add-note-button" class="btn-glass text-white p-2 rounded-lg" title="Adicionar Bloco de Notas">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                </button>
+                <button id="clear-moodboard-button" class="btn-glass text-white font-bold p-2 rounded-lg" title="Limpar Moodboard">
+                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+                <button id="organize-by-color-button" class="btn-glass text-white font-bold py-2 px-3 rounded-lg flex items-center space-x-2" title="Organizar por Cor com IA">
+                    <span>🎨</span>
+                    <span id="organize-btn-text" class="text-sm">Organizar</span>
+                    <div id="organize-loader" class="hidden loader" style="width:16px; height:16px; border-width: 2px;"></div>
+                </button>
+                <button id="gemini-analysis-button" class="btn-glass text-white font-bold py-2 px-3 rounded-lg flex items-center space-x-2" title="Analisar Moodboard com IA">
+                    <span>✨</span>
+                    <span class="text-sm">Analisar</span>
+                </button>
+                <button id="add-more-button" class="btn-glass text-white font-bold py-2 px-3 rounded-lg text-sm">
+                    Subir +
+                </button>
+                <button id="download-moodboard-button" class="btn-glass text-white font-bold p-2 rounded-lg" title="Salvar Moodboard como JPG">
+                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </div>
+             <button id="mobile-menu-button" class="md:hidden btn-glass p-2 rounded-lg">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </header>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden fixed top-0 right-0 h-full w-64 bg-slate-900/80 backdrop-blur-lg z-40 p-4 space-y-2 transform translate-x-full transition-transform">
+        </div>
+
+        <div id="moodboard-wrapper" class="w-full h-full pt-16 overflow-y-auto custom-scrollbar">
+            <div id="moodboard-track">
+                 <!-- As imagens e notas serão inseridas aqui -->
+            </div>
+        </div>
+        <input type="file" id="image-input" class="hidden" multiple accept="image/*">
+    </div>
+    
+    <!-- Modal de Zoom -->
+    <div id="zoom-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <button id="close-zoom" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 z-10">&times;</button>
+        <img id="zoomed-image" src="" class="max-h-full max-w-full object-contain rounded-lg">
+    </div>
+    
+    <!-- Modal Gemini -->
+     <div id="gemini-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div class="modal-glass rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 class="text-xl font-bold text-theme">✨ Análise Criativa da IA</h3>
+                <button id="gemini-close-button" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                 <div id="gemini-loader" class="flex flex-col items-center justify-center">
+                    <div class="loader"></div>
+                    <p class="mt-4 text-gray-400 text-center">A IA está analisando as imagens do seu moodboard...</p>
+                 </div>
+                 <div id="gemini-response-area" class="hidden gemini-response"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const uploadScreen = document.getElementById('upload-screen');
+        const uploadButton = document.getElementById('upload-button');
+        const imageInput = document.getElementById('image-input');
+        
+        const moodboardContainer = document.getElementById('moodboard-container');
+        const moodboardWrapper = document.getElementById('moodboard-wrapper');
+        const moodboardTrack = document.getElementById('moodboard-track');
+        const addMoreButton = document.getElementById('add-more-button');
+        const downloadMoodboardButton = document.getElementById('download-moodboard-button');
+        const geminiAnalysisButton = document.getElementById('gemini-analysis-button');
+        const organizeByColorButton = document.getElementById('organize-by-color-button');
+        const organizeBtnText = document.getElementById('organize-btn-text');
+        const organizeLoader = document.getElementById('organize-loader');
+        const clearMoodboardButton = document.getElementById('clear-moodboard-button');
+        const homeButton = document.getElementById('home-button');
+        const addNoteButton = document.getElementById('add-note-button');
+        
+        const themeToggleInitial = document.getElementById('theme-toggle-initial');
+        const themeToggleMain = document.getElementById('theme-toggle-main');
+        
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        const zoomModal = document.getElementById('zoom-modal');
+        const zoomedImage = document.getElementById('zoomed-image');
+        const closeZoomButton = document.getElementById('close-zoom');
+        
+        const geminiModal = document.getElementById('gemini-modal');
+        const geminiCloseButton = document.getElementById('gemini-close-button');
+        const geminiLoader = document.getElementById('gemini-loader');
+        const geminiResponseArea = document.getElementById('gemini-response-area');
+        
+        const lavaCanvas = document.getElementById('lava-canvas');
+        const lavaCtx = lavaCanvas.getContext('2d');
+
+        let blobs = [];
+
+        // --- LAVA LAMP EFFECT ---
+        function setupLavaLamp() {
+            lavaCanvas.width = window.innerWidth;
+            lavaCanvas.height = window.innerHeight;
+            blobs = [];
+            const colors = ['#4f46e5', '#7c3aed', '#a855f7'];
+            for (let i = 0; i < 15; i++) {
+                blobs.push({
+                    x: Math.random() * lavaCanvas.width,
+                    y: Math.random() * lavaCanvas.height,
+                    radius: Math.random() * 80 + 40,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                });
+            }
+            animateLavaLamp();
+        }
+
+        function animateLavaLamp() {
+            if (!uploadScreen.classList.contains('hidden')) {
+                lavaCtx.clearRect(0, 0, lavaCanvas.width, lavaCanvas.height);
+                blobs.forEach(blob => {
+                    blob.x += blob.vx;
+                    blob.y += blob.vy;
+                    if (blob.x < blob.radius || blob.x > lavaCanvas.width + blob.radius) blob.vx *= -1;
+                    if (blob.y < blob.radius || blob.y > lavaCanvas.height + blob.radius) blob.vy *= -1;
+                    lavaCtx.beginPath();
+                    lavaCtx.arc(blob.x, blob.y, blob.radius, 0, Math.PI * 2);
+                    lavaCtx.fillStyle = blob.color;
+                    lavaCtx.fill();
+                });
+                requestAnimationFrame(animateLavaLamp);
+            }
+        }
+        
+        uploadButton.addEventListener('click', () => imageInput.click());
+        addMoreButton.addEventListener('click', () => imageInput.click());
+        homeButton.addEventListener('click', () => location.reload());
+
+        const showMoodboard = () => {
+             if (uploadScreen.classList.contains('hidden')) return;
+             uploadScreen.classList.add('hidden');
+             moodboardContainer.classList.remove('hidden');
+        }
+
+        imageInput.addEventListener('change', (event) => {
+            const files = event.target.files;
+            if (files.length > 0) {
+                showMoodboard();
+                Array.from(files).forEach(file => {
+                     const reader = new FileReader();
+                     reader.onload = (e) => createImageElement(e.target.result);
+                     reader.readAsDataURL(file);
+                });
+            }
+        });
+
+        function createImageElement(src) {
+            const img = document.createElement('img');
+            img.src = src;
+            img.crossOrigin = "anonymous";
+            img.className = 'block w-full h-full object-contain rounded-lg pointer-events-none';
+
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'moodboard-item bg-black rounded-lg group';
+            imgContainer.draggable = true;
+            
+            const actionButtons = document.createElement('div');
+            actionButtons.className = 'action-buttons';
+            
+            const zoomBtn = document.createElement('button');
+            zoomBtn.innerHTML = `<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>`;
+            zoomBtn.title = 'Zoom na imagem';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = `<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
+            deleteBtn.title = 'Deletar imagem';
+            
+            actionButtons.appendChild(zoomBtn);
+            actionButtons.appendChild(deleteBtn);
+            imgContainer.appendChild(img);
+            imgContainer.appendChild(actionButtons);
+            moodboardTrack.insertBefore(imgContainer, moodboardTrack.firstChild);
+
+            img.onload = () => {
+                const initialHeight = window.innerHeight * 0.25;
+                const aspectRatio = img.naturalWidth / img.naturalHeight;
+                imgContainer.style.height = `${initialHeight}px`;
+                imgContainer.style.width = `${initialHeight * aspectRatio}px`;
+                reflowGrid();
+            };
+            
+            zoomBtn.addEventListener('click', () => { zoomedImage.src = img.src; zoomModal.style.display = 'flex'; });
+            deleteBtn.addEventListener('click', () => { imgContainer.remove(); reflowGrid(); });
+        }
+        
+        addNoteButton.addEventListener('click', () => {
+            showMoodboard();
+            const noteContainer = document.createElement('div');
+            noteContainer.className = 'moodboard-item notepad rounded-lg group';
+            noteContainer.draggable = true;
+            noteContainer.style.width = '250px';
+            noteContainer.style.height = '250px';
+            noteContainer.style.backgroundColor = '#a8a29e'; // Cinza
+
+            const controls = document.createElement('div');
+            controls.className = 'notepad-controls';
+
+            const fonts = ['Inter', 'Borel', 'Caveat', 'Kalam', 'Roboto Mono'];
+            const fontSelect = document.createElement('select');
+            fonts.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f;
+                option.textContent = f;
+                fontSelect.appendChild(option);
+            });
+            
+            const sizeSelect = document.createElement('select');
+            const sizes = ['12', '14', '16', '20', '24'];
+            sizes.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s;
+                option.textContent = `${s}px`;
+                sizeSelect.appendChild(option);
+            });
+            sizeSelect.value = '16';
+
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = '#3f3f46';
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'notepad-textarea';
+            textarea.style.fontFamily = 'Inter';
+            textarea.style.fontSize = '16px';
+            textarea.style.color = '#3f3f46';
+
+            fontSelect.onchange = () => textarea.style.fontFamily = fontSelect.value;
+            sizeSelect.onchange = () => textarea.style.fontSize = `${sizeSelect.value}px`;
+            colorInput.oninput = () => textarea.style.color = colorInput.value;
+
+            controls.appendChild(fontSelect);
+            controls.appendChild(sizeSelect);
+            controls.appendChild(colorInput);
+            noteContainer.appendChild(controls);
+            noteContainer.appendChild(textarea);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = `<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
+            deleteBtn.className = 'absolute top-2 right-2 bg-red-600/80 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity';
+            deleteBtn.onclick = () => { noteContainer.remove(); reflowGrid(); };
+            noteContainer.appendChild(deleteBtn);
+            
+            moodboardTrack.insertBefore(noteContainer, moodboardTrack.firstChild);
+            reflowGrid();
+        });
+
+        let draggedItem = null;
+        moodboardTrack.addEventListener('dragstart', e => {
+            if (e.target.classList.contains('moodboard-item')) {
+                draggedItem = e.target;
+                setTimeout(() => e.target.classList.add('dragging'), 0);
+            }
+        });
+        moodboardTrack.addEventListener('dragend', () => {
+             if (draggedItem) {
+                draggedItem.classList.remove('dragging');
+                draggedItem = null;
+                reflowGrid();
+            }
+        });
+        moodboardTrack.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(moodboardTrack, e.clientY);
+            if (afterElement == null) {
+                moodboardTrack.appendChild(draggedItem);
+            } else {
+                moodboardTrack.insertBefore(draggedItem, afterElement);
+            }
+        });
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.moodboard-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function reflowGrid(sortByColor = false) {
+            const container = moodboardTrack;
+            if (!container) return;
+            const containerWidth = moodboardWrapper.offsetWidth;
+            const numCols = Math.floor(containerWidth / 350) || 1;
+            const colWidth = containerWidth / numCols;
+            const colHeights = Array(numCols).fill(40);
+            const gap = 32;
+
+            let children = Array.from(container.children);
+            if (sortByColor) {
+                children.sort((a, b) => (a.dataset.color || 'z').localeCompare(b.dataset.color || 'z'));
+                children.forEach(child => container.appendChild(child));
+            }
+            
+            children.forEach(child => {
+                if (!child.classList.contains('moodboard-item') || child.classList.contains('dragging')) return;
+                const shortestColIndex = colHeights.indexOf(Math.min(...colHeights));
+                
+                const newWidth = colWidth - gap;
+                const childAspectRatio = parseFloat(child.style.width) / parseFloat(child.style.height);
+                const newHeight = newWidth / childAspectRatio;
+                child.style.width = `${newWidth}px`;
+                child.style.height = `${newHeight}px`;
+
+                child.style.left = `${(shortestColIndex * colWidth) + (gap/2)}px`;
+                child.style.top = `${colHeights[shortestColIndex]}px`;
+                
+                colHeights[shortestColIndex] += newHeight + gap;
+            });
+            container.style.height = `${Math.max(...colHeights)}px`;
+        }
+        window.addEventListener('resize', reflowGrid);
+        
+        moodboardContainer.addEventListener('mousemove', e => {
+            const rect = moodboardContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            moodboardContainer.style.setProperty('--mouse-x', `${x}px`);
+            moodboardContainer.style.setProperty('--mouse-y', `${y}px`);
+        });
+
+        closeZoomButton.addEventListener('click', () => zoomModal.style.display = 'none');
+        zoomModal.addEventListener('click', (e) => {
+            if (e.target === zoomModal) zoomModal.style.display = 'none';
+        });
+
+        downloadMoodboardButton.addEventListener('click', () => {
+            document.querySelectorAll('.action-buttons').forEach(el => el.style.visibility = 'hidden');
+            html2canvas(document.body, {
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color'),
+                useCORS: true,
+                logging: false,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                x: 0,
+                y: 0
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'meu-moodboard.jpg';
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
+                document.querySelectorAll('.action-buttons').forEach(el => el.style.visibility = 'visible');
+            }).catch(err => {
+                console.error("Erro ao gerar canvas:", err);
+                alert("Ocorreu um erro ao salvar o moodboard. Tente novamente.");
+                document.querySelectorAll('.action-buttons').forEach(el => el.style.visibility = 'visible');
+            });
+        });
+        
+        clearMoodboardButton.addEventListener('click', () => {
+            if (confirm("Tem certeza que deseja remover todos os itens?")) {
+                moodboardTrack.innerHTML = '';
+                reflowGrid();
+            }
+        });
+        
+        // --- LÓGICA DA API GEMINI ---
+        const callGeminiAPI = async (prompt, imageParts) => {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [prompt, ...imageParts] }] };
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                }
+                throw new Error("Invalid API response.");
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return `Ocorreu um erro ao contatar a IA: ${error.message}.`;
+            }
+        };
+        
+        geminiAnalysisButton.addEventListener('click', async () => {
+            const images = moodboardTrack.querySelectorAll('.moodboard-item:not(.notepad) img');
+            if (images.length === 0) {
+                alert("Por favor, adicione algumas imagens ao moodboard primeiro.");
+                return;
+            }
+            
+            geminiModal.style.display = 'flex';
+            geminiLoader.style.display = 'flex';
+            geminiResponseArea.style.display = 'none';
+
+            const imageParts = [];
+            images.forEach(img => {
+                const dataUrl = img.src;
+                const mimeType = dataUrl.substring(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";"));
+                const base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1);
+                imageParts.push({ inlineData: { mimeType: mimeType, data: base64Data } });
+            });
+            
+            const prompt = {text: "Você é um diretor de arte e analista de tendências. Analise as seguintes imagens de um moodboard. Com base nelas, forneça uma análise criativa em português com os seguintes tópicos em negrito:\n\n**Mood Geral:** (Descreva a atmosfera geral, ex: 'Energético e Urbano', 'Calmo e Natural', 'Retrô e Nostálgico').\n**Paleta de Cores:** (Liste as 3-5 cores dominantes e como elas interagem).\n**Conceito Criativo:** (Sugira um conceito, uma pequena história ou uma ideia de projeto que essas imagens poderiam inspirar)."};
+
+            const responseText = await callGeminiAPI(prompt, imageParts);
+
+            geminiLoader.style.display = 'none';
+            geminiResponseArea.innerHTML = responseText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            geminiResponseArea.style.display = 'block';
+        });
+
+        geminiCloseButton.addEventListener('click', () => {
+            geminiModal.style.display = 'none';
+        });
+
+        organizeByColorButton.addEventListener('click', async () => {
+            const images = Array.from(moodboardTrack.querySelectorAll('.moodboard-item:not(.notepad)'));
+            if (images.length === 0) {
+                alert("Adicione imagens para organizar.");
+                return;
+            }
+
+            organizeBtnText.textContent = 'Analisando...';
+            organizeLoader.style.display = 'inline-block';
+
+            for (const container of images) {
+                const img = container.querySelector('img');
+                const dataUrl = img.src;
+                const mimeType = dataUrl.substring(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";"));
+                const base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1);
+                const imagePart = { inlineData: { mimeType: mimeType, data: base64Data } };
+                const prompt = {text: "Analise esta imagem e me diga a cor dominante principal em uma única palavra em inglês (ex: 'blue', 'red', 'green', 'yellow', 'purple', 'orange', 'black', 'white', 'gray', 'brown')."};
+                
+                try {
+                    const color = await callGeminiAPI(prompt, [imagePart]);
+                    container.dataset.color = color.trim().toLowerCase();
+                } catch (error) {
+                    console.error("Failed to get color for an image:", error);
+                    container.dataset.color = 'unknown'; 
+                }
+            }
+            reflowGrid(true);
+            organizeBtnText.textContent = 'Organizar por Cor';
+            organizeLoader.style.display = 'none';
+        });
+
+        // --- LÓGICA DO TEMA ---
+        function applyTheme(isLight) {
+            document.body.classList.toggle('light-mode', isLight);
+            const sunIcon = `<svg class="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.106a.75.75 0 011.06.044l1.5 1.5a.75.75 0 01-1.06 1.06l-1.5-1.5a.75.75 0 01.044-1.06zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5h2.25a.75.75 0 01.75.75zM19.956 18.894a.75.75 0 01-1.06.044l-1.5-1.5a.75.75 0 111.06-1.06l1.5 1.5a.75.75 0 01.044 1.06zM12 21.75a.75.75 0 01-.75-.75v-2.25a.75.75 0 011.5 0v2.25a.75.75 0 01-.75.75zM5.044 19.956a.75.75 0 01-1.06-.044l-1.5-1.5a.75.75 0 011.06-1.06l1.5 1.5a.75.75 0 01-.044 1.06zM2.25 12a.75.75 0 01.75-.75h2.25a.75.75 0 010 1.5H3a.75.75 0 01-.75-.75zM6.106 5.044a.75.75 0 01.044 1.06l-1.5 1.5a.75.75 0 11-1.06-1.06l1.5-1.5a.75.75 0 011.06-.044z"></path></svg>`;
+            const moonIcon = `<svg class="w-6 h-6 text-indigo-400" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 004.463-.948.75.75 0 01.818.162a7.5 7.5 0 01-7.668 7.668A7.5 7.5 0 013 13.5a7.5 7.5 0 017.668-7.668.75.75 0 01.86.118z" clip-rule="evenodd"></path></svg>`;
+            themeToggleInitial.innerHTML = isLight ? moonIcon : sunIcon;
+            themeToggleMain.innerHTML = isLight ? moonIcon : sunIcon;
+        }
+
+        function toggleTheme() {
+            const isLight = !document.body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            applyTheme(isLight);
+        }
+
+        themeToggleInitial.addEventListener('click', toggleTheme);
+        themeToggleMain.addEventListener('click', toggleTheme);
+        
+        setupLavaLamp();
+        applyTheme(localStorage.getItem('theme') === 'light');
+
+    </script>
+</body>
+</html>
