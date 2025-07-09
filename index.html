@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeckCore Tcg - Edição Laranja Atómico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-medium: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-glow: #f97316; /* Orange-500 */
+        }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-primary); }
+        .font-pixel { font-family: 'Press Start 2P', cursive; }
+        .glass-header { background: rgba(13, 17, 23, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-medium); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #484f58; }
+        
+        .card-container { position: relative; }
+        .card-image { transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease; border-radius: 12px; border: 1px solid var(--border-color); cursor: pointer; }
+        .card-container:hover .card-image { transform: scale(1.05) translateY(-5px); box-shadow: 0 0 15px 3px var(--glow-color, var(--accent-glow)), 0 8px 20px rgba(0,0,0,0.4); z-index: 10; }
+        .card-count-badge { position: absolute; top: 8px; right: 8px; background-color: rgba(0,0,0,0.7); color: white; font-weight: 600; font-size: 0.8rem; padding: 2px 8px; border-radius: 99px; z-index: 11; pointer-events: none; }
+
+        .loader { border: 4px solid #30363d; border-top: 4px solid var(--accent-glow); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .btn { background: rgba(48, 54, 61, 0.5); border: 1px solid var(--border-color); color: var(--text-primary); transition: all 0.2s ease-in-out; backdrop-filter: blur(5px); }
+        .btn:hover { background: rgba(60, 68, 78, 0.7); border-color: #8b949e; color: white; }
+        .btn-primary { background: var(--accent-glow); border-color: transparent; color: white; }
+        .btn-primary:hover { background: #fb923c; border-color: transparent; }
+        .btn-danger { background-color: #da3633; border-color: transparent; color: white; }
+        .btn-danger:hover { background-color: #f85149; border-color: transparent; }
+
+        .nav-link { padding: 8px 16px; border-radius: 8px; transition: background-color 0.2s, color 0.2s; border: 2px solid transparent; cursor: pointer; }
+        .nav-link.active { background-color: var(--accent-glow); color: white; font-weight: 600; }
+        .nav-link:not(.active):hover { background-color: var(--border-color); }
+        
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .prose-custom { color: var(--text-secondary); }
+        .prose-custom h2 { color: var(--text-primary); font-size: 1.5rem; margin-bottom: 1rem; }
+        .prose-custom h3 { color: var(--accent-glow); font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .prose-custom p, .prose-custom li { margin-bottom: 0.75rem; line-height: 1.6; }
+        .prose-custom ul { list-style-type: disc; padding-left: 1.5rem; }
+        .prose-custom strong { color: var(--text-primary); }
+
+        .suggestion-card { background-color: var(--bg-medium); border: 1px solid var(--border-color); transition: transform 0.2s, box-shadow 0.2s; }
+        .suggestion-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); border-color: var(--accent-glow); }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header -->
+    <header class="glass-header p-4 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <a href="#organizer" data-target="page-organizer" class="nav-link-logo text-center sm:text-left cursor-pointer">
+                <h1 class="font-pixel text-xl md:text-2xl text-white">DeckCore Tcg</h1>
+                <p class="text-xs text-text-secondary">Beta 0.0.1</p>
+            </a>
+            <nav class="flex items-center gap-1 sm:gap-2 text-sm font-semibold">
+                <a class="nav-link active" data-target="page-organizer">Início</a>
+                <a class="nav-link" data-target="page-suggestions">Sugestões</a>
+                <a class="nav-link" data-target="page-tutorial">Tutorial</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 md:px-6 pb-6">
+        <!-- Page: Organizer -->
+        <div id="page-organizer" class="page active">
+            <div class="max-w-xl mx-auto p-4 sticky top-[101px] sm:top-[73px] z-20 -mx-4 md:-mx-6">
+                 <div class="w-full relative">
+                    <input type="text" id="search-input" placeholder="Procurar por cartas..." class="w-full bg-gray-300 border-2 border-border-color rounded-full py-3 px-6 text-black placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-dark focus:ring-accent-glow transition-all shadow-lg">
+                    <svg class="w-5 h-5 text-gray-600 absolute right-5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+            <div class="flex flex-col lg:flex-row gap-6">
+                <main class="flex-1 lg:h-[calc(100vh-225px)] flex flex-col">
+                    <div class="bg-black/20 p-4 sm:p-6 rounded-2xl h-full flex flex-col">
+                        <h2 class="text-2xl font-bold mb-4">Resultados da Busca</h2>
+                        <div id="search-results" class="flex-1 overflow-y-auto custom-scrollbar -mr-2 pr-2">
+                            <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+                            <div id="status-message" class="flex items-center justify-center h-full text-text-secondary"><p>Use a barra de pesquisa para encontrar cartas!</p></div>
+                        </div>
+                    </div>
+                </main>
+                <aside class="w-full lg:w-80 lg:max-w-xs flex-shrink-0">
+                    <div class="bg-black/20 p-4 sm:p-6 rounded-2xl h-full flex flex-col lg:sticky lg:top-[160px] lg:h-[calc(100vh-180px)]">
+                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                            <h2 class="text-2xl font-bold">Sua Coleção</h2>
+                            <span class="font-bold text-lg bg-orange-900/50 text-accent-glow py-1 px-3 rounded-full"><span id="card-count">0</span></span>
+                        </div>
+                        <div id="status-notification" class="text-sm mb-2 text-center h-5 flex-shrink-0"></div>
+                        
+                        <!-- Scrollable Area -->
+                        <div class="flex-1 min-h-0 overflow-hidden">
+                             <div id="collection-area-mobile" class="lg:hidden h-full custom-scrollbar -mx-4 px-4">
+                                <div id="collection-grid-mobile" class="grid grid-flow-col auto-cols-max gap-3"></div>
+                                <div id="collection-placeholder-mobile" class="flex items-center justify-center h-full text-center text-text-secondary"><p>As cartas que adicionar aparecerão aqui.</p></div>
+                            </div>
+                            <div id="collection-area-desktop" class="hidden lg:block h-full custom-scrollbar -mr-3 pr-3 overflow-y-auto">
+                                <div id="collection-grid-desktop" class="grid grid-cols-3 gap-3"></div>
+                                <div id="collection-placeholder-desktop" class="flex items-center justify-center h-full text-center text-text-secondary"><p>As cartas que adicionar aparecerão aqui.</p></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons Area -->
+                        <div class="mt-4 flex-shrink-0 bg-bg-dark rounded-lg p-3">
+                            <div class="space-y-2">
+                                 <div class="grid grid-cols-2 gap-2">
+                                    <button id="gemini-suggest-button" class="btn btn-primary font-semibold py-2 px-4 rounded-lg flex items-center justify-center space-x-2 text-sm"><span>Sugerir Deck</span></button>
+                                    <button id="text-deck-button" class="btn btn-primary font-semibold py-2 px-4 rounded-lg flex items-center justify-center space-x-2 text-sm"><span>Deck por Lista</span></button>
+                                    <button id="upload-button" class="btn font-semibold py-2 px-4 rounded-lg flex items-center justify-center space-x-2 text-sm"><span>Carregar</span></button>
+                                    <button id="download-button" class="btn font-semibold py-2 px-4 rounded-lg flex items-center justify-center space-x-2 text-sm"><span>Guardar</span></button>
+                                </div>
+                                <button id="clear-collection" class="btn-danger w-full font-semibold py-2 px-4 rounded-lg flex items-center justify-center space-x-2"><span>Limpar Coleção</span></button>
+                                 <input type="file" id="upload-input" class="hidden" accept=".csv">
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- Page: Deck Suggestions -->
+        <div id="page-suggestions" class="page">
+            <div class="prose-custom max-w-none">
+                <h2 class="text-3xl font-bold mb-6 text-center">Sugestões de Decks do Meta</h2>
+                <p class="text-center mb-8">Explore alguns dos decks mais populares e competitivos do formato atual. Clique num deck para ver a lista e o código de importação para o TCG Live.</p>
+                <div id="deck-suggestions-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+            </div>
+        </div>
+        
+        <!-- Page: Deck Details (for pre-generated decks) -->
+        <div id="page-deck-details" class="page">
+             <div class="flex items-center mb-6">
+                <button id="back-to-suggestions-btn" class="btn p-2 rounded-full mr-4"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg></button>
+                <h2 id="deck-details-title" class="text-3xl font-bold"></h2>
+            </div>
+            <div id="deck-details-content" class="prose-custom max-w-3xl mx-auto bg-black/20 p-6 sm:p-8 rounded-2xl">
+                <!-- Pre-generated content will be injected here -->
+            </div>
+        </div>
+
+        <!-- Page: Tutorial -->
+        <div id="page-tutorial" class="page">
+            <div class="prose-custom max-w-3xl mx-auto bg-black/20 p-6 sm:p-8 rounded-2xl">
+                <h2 class="text-3xl font-bold text-center">Como Usar o DeckCore Tcg</h2>
+                <p class="text-center text-lg">Este é o seu centro de comando para tudo relacionado com cartas de Pokémon. Aqui está como pode começar.</p>
+                
+                <h3>Passo 1: Encontre as Suas Cartas</h3>
+                <p>Na página <strong>Início</strong>, use a barra de pesquisa para encontrar qualquer carta que desejar. Digite o nome e veja a magia acontecer. As cartas que encontrar brilharão com a cor da sua arte quando passar o rato por cima.</p>
+                
+                <h3>Passo 2: Monte a Sua Coleção Pessoal</h3>
+                <p>Encontrou uma carta que tem ou que quer? Simplesmente clique nela. A carta irá voar para o painel "Sua Coleção". Este painel é o seu inventário digital, guardado diretamente no seu navegador.</p>
+                <ul>
+                    <li><strong>Já tem a carta?</strong> Não há problema. Se adicionar uma carta que já possui, um contador aparecerá sobre ela nos resultados da busca, mostrando-lhe quantas cópias já tem.</li>
+                    <li><strong>Gerir a coleção:</strong> Dentro do seu painel, pode clicar na lupa para ver uma carta em detalhe ou no caixote do lixo para a remover.</li>
+                </ul>
+
+                <h3>Passo 3: Inspire-se com Sugestões de Decks</h3>
+                <p>Está sem ideias? Navegue até à aba <strong>Sugestões</strong>. Lá, encontrará uma lista de decks populares. Clique em qualquer um e verá instantaneamente a lista de cartas, a estratégia e um botão para copiar o código do deck diretamente para o Pokémon TCG Live.</p>
+
+                <h3>Passo 4: Crie e Otimize os Seus Decks</h3>
+                <p>No painel da sua coleção, tem acesso a ferramentas poderosas:</p>
+                <ul>
+                    <li><strong>Sugerir Deck:</strong> Se já tiver pelo menos 40 cartas, a IA pode analisar o seu inventário e sugerir um deck funcional com o que tem disponível.</li>
+                    <li><strong>Deck por Lista:</strong> Tem uma lista de cartas que encontrou online? Cole-a aqui e a IA irá formatá-la, otimizá-la e explicar como funciona.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div id="gemini-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50" style="display: none;"><div class="bg-bg-medium rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-border-color"><div class="flex justify-between items-center p-5 border-b border-border-color"><h3 class="text-xl font-bold text-text-primary">✨ Sugestão de Deck com IA</h3><button id="gemini-close-button" class="text-text-secondary hover:text-white text-3xl transition-colors">&times;</button></div><div class="p-6 overflow-y-auto custom-scrollbar"><div id="gemini-loader" class="flex flex-col items-center justify-center text-center py-8"><div class="loader"></div><p class="mt-4 text-text-secondary">A IA está a analisar a sua coleção...</p></div><div id="gemini-response-area" class="hidden prose prose-invert max-w-none prose-p:text-text-secondary prose-strong:text-text-primary"></div><div id="gemini-export-area" class="hidden mt-4"><h3 class="text-lg font-bold text-accent-glow">Código para TCG Live</h3><div class="bg-bg-dark p-3 rounded-lg mt-2"><pre id="gemini-export-code" class="text-sm whitespace-pre-wrap break-all custom-scrollbar"></pre></div><button id="copy-gemini-code-btn" class="btn btn-primary w-full mt-3 font-semibold py-2 px-4 rounded-lg">Copiar para o Jogo</button></div></div></div></div>
+    <div id="text-deck-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50" style="display: none;"><div class="bg-bg-medium rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-border-color"><div class="flex justify-between items-center p-5 border-b border-border-color"><h3 class="text-xl font-bold text-text-primary">📝 Gerar Deck a partir de Lista</h3><button id="text-deck-close-button" class="text-text-secondary hover:text-white text-3xl transition-colors">&times;</button></div><div class="p-6 overflow-y-auto custom-scrollbar"><p class="text-text-secondary mb-4">Cole a sua lista de cartas abaixo...</p><textarea id="text-deck-input" class="w-full h-40 bg-bg-dark text-text-primary p-3 rounded-lg border border-border-color focus:outline-none focus:ring-2 focus:ring-accent-glow focus:border-accent-glow transition"></textarea><button id="generate-from-text-button" class="btn btn-primary w-full mt-4 font-semibold py-3 px-4 rounded-lg">Gerar Deck</button><div id="text-deck-loader" class="hidden flex-col items-center justify-center mt-6 text-center"><div class="loader"></div><p class="mt-4 text-text-secondary">A IA está a processar a sua lista...</p></div><div id="text-deck-response-area" class="hidden mt-4 prose prose-invert max-w-none prose-p:text-text-secondary prose-strong:text-text-primary"></div><div id="text-deck-export-area" class="hidden mt-4"><h3 class="text-lg font-bold text-accent-glow">Código para TCG Live</h3><div class="bg-bg-dark p-3 rounded-lg mt-2"><pre id="text-deck-export-code" class="text-sm whitespace-pre-wrap break-all custom-scrollbar"></pre></div><button id="copy-text-deck-code-btn" class="btn btn-primary w-full mt-3 font-semibold py-2 px-4 rounded-lg">Copiar para o Jogo</button></div></div></div></div>
+    <div id="image-zoom-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 z-50" style="display: none;"><div class="relative"><img id="zoomed-image" src="" alt="[Imagem da carta em zoom]" class="max-h-[90vh] max-w-[80vw] object-contain rounded-2xl shadow-2xl"><button id="close-zoom-button" class="absolute -top-3 -right-3 bg-red-600 text-white p-2 rounded-full hover:scale-110 transition-transform"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div></div>
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50" style="display: none;"><div class="bg-bg-medium rounded-2xl shadow-xl w-full max-w-sm border border-border-color p-6"><div class="text-center"><p id="confirm-message" class="text-text-primary text-lg mb-6">Tem a certeza?</p><div class="flex justify-center space-x-4"><button id="confirm-cancel-btn" class="btn px-8 py-2 rounded-lg font-semibold">Cancelar</button><button id="confirm-ok-btn" class="btn-danger px-8 py-2 rounded-lg font-semibold">Confirmar</button></div></div></div></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const colorThief = new ColorThief();
+            
+            // --- DOM Elements ---
+            const searchInput = document.getElementById('search-input');
+            const resultsGrid = document.getElementById('results-grid');
+            const statusMessage = document.getElementById('status-message');
+            const collectionGridDesktop = document.getElementById('collection-grid-desktop');
+            const collectionPlaceholderDesktop = document.getElementById('collection-placeholder-desktop');
+            const collectionGridMobile = document.getElementById('collection-grid-mobile');
+            const collectionPlaceholderMobile = document.getElementById('collection-placeholder-mobile');
+            const cardCount = document.getElementById('card-count');
+            const clearCollectionBtn = document.getElementById('clear-collection');
+            const uploadInput = document.getElementById('upload-input');
+            const uploadButton = document.getElementById('upload-button');
+            const downloadButton = document.getElementById('download-button');
+            const statusNotification = document.getElementById('status-notification');
+            const navLinks = document.querySelectorAll('.nav-link, .nav-link-logo');
+            const pages = document.querySelectorAll('.page');
+            const deckSuggestionsGrid = document.getElementById('deck-suggestions-grid');
+            const deckDetailsContent = document.getElementById('deck-details-content');
+            const deckDetailsTitle = document.getElementById('deck-details-title');
+            const backToSuggestionsBtn = document.getElementById('back-to-suggestions-btn');
+            
+            // Modals
+            const imageZoomModal = document.getElementById('image-zoom-modal');
+            
+            // --- State ---
+            let collection = [];
+            let collectionCounts = new Map();
+            let searchTimeout;
+
+            // --- Function Definitions ---
+
+            const callGeminiAPI = async (prompt) => {
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                try {
+                    const res = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                    const result = await res.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]) return result.candidates[0].content.parts[0].text;
+                    throw new Error("Invalid API response.");
+                } catch (e) {
+                    console.error("Error calling Gemini API:", e);
+                    return `Ocorreu um erro ao contatar a IA: ${e.message}.`;
+                }
+            };
+
+            const searchCards = async (query) => {
+                if (query.length < 3) {
+                    resultsGrid.innerHTML = '';
+                    statusMessage.style.display = 'flex';
+                    statusMessage.innerHTML = '<p>Digite pelo menos 3 letras para buscar.</p>';
+                    return;
+                }
+                statusMessage.style.display = 'flex';
+                statusMessage.innerHTML = '<div class="loader"></div>';
+                try {
+                    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=name:"${query}*"`);
+                    if (!res.ok) throw new Error('API Error.');
+                    const data = await res.json();
+                    displayResults(data.data);
+                } catch (e) {
+                    statusMessage.innerHTML = `<p>Nenhuma carta encontrada. Tente outro nome.</p>`;
+                }
+            };
+            
+            const fetchFullCardsData = async (ids) => {
+                showStatus('A importar dados...', 'yellow', 0);
+                const uniqueIds = [...new Set(ids)];
+                const promises = uniqueIds.map(id => fetch(`https://api.pokemontcg.io/v2/cards/${id}`).then(res => res.json()).then(data => data.data).catch(err => { console.error(err); return null; }));
+                try {
+                    const loaded = await Promise.all(promises);
+                    const map = new Map(loaded.filter(Boolean).map(c => [c.id, c]));
+                    collection = ids.map(id => map.get(id)).filter(Boolean);
+                    updateCollectionCounts();
+                    renderCollection();
+                    saveCollectionToLocalStorage();
+                    showStatus('Coleção importada!', 'green');
+                    updateSearchResultsUI();
+                } catch (e) {
+                    console.error(e);
+                    showStatus('Erro ao carregar coleção.', 'red');
+                }
+            };
+
+            const showStatus = (msg, color, dur = 3000) => {
+                const colors = { yellow: '#fde047', green: '#4ade80', red: '#f87171' };
+                statusNotification.textContent = msg;
+                statusNotification.style.color = colors[color] || colors.yellow;
+                statusNotification.style.fontWeight = '500';
+                if (dur > 0) setTimeout(() => { statusNotification.textContent = ''; }, dur);
+            };
+
+            const updateCollectionCounts = () => {
+                collectionCounts.clear();
+                for (const card of collection) {
+                    collectionCounts.set(card.id, (collectionCounts.get(card.id) || 0) + 1);
+                }
+            };
+
+            const saveCollectionToLocalStorage = () => {
+                try {
+                    localStorage.setItem('pokemonTcgCollection', JSON.stringify(collection));
+                } catch (e) {
+                    console.error(e);
+                    showStatus('Erro ao guardar coleção.', 'red');
+                }
+            };
+
+            const loadCollectionFromLocalStorage = () => {
+                try {
+                    const data = localStorage.getItem('pokemonTcgCollection');
+                    if (data) {
+                        collection = JSON.parse(data);
+                        updateCollectionCounts();
+                        renderCollection();
+                        showStatus('Coleção carregada!', 'green');
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showStatus('Erro ao carregar coleção.', 'red');
+                    collection = [];
+                }
+            };
+
+            const createCardElement = (card) => {
+                const container = document.createElement('div');
+                container.className = 'card-container';
+                container.dataset.id = card.id;
+                const img = document.createElement('img');
+                img.src = card.images.large;
+                img.alt = card.name;
+                img.className = 'card-image w-full';
+                img.loading = 'lazy';
+                img.crossOrigin = "Anonymous";
+                img.onload = () => {
+                    try {
+                        const color = colorThief.getColor(img);
+                        img.style.setProperty('--glow-color', `rgb(${color[0]}, ${color[1]}, ${color[2]})`);
+                    } catch (e) {
+                        img.style.setProperty('--glow-color', 'var(--accent-glow)');
+                    }
+                };
+                img.addEventListener('click', (e) => addCardToCollection(card, e.currentTarget));
+                container.appendChild(img);
+                return container;
+            };
+
+            const updateSearchResultsUI = (grid = resultsGrid) => {
+                const cardElements = grid.querySelectorAll('.card-container');
+                cardElements.forEach(container => {
+                    const cardId = container.dataset.id;
+                    const count = collectionCounts.get(cardId) || 0;
+                    const img = container.querySelector('img');
+                    let badge = container.querySelector('.card-count-badge');
+                    if (count > 0) {
+                        img.style.opacity = '0.5';
+                        if (!badge) {
+                            badge = document.createElement('div');
+                            badge.className = 'card-count-badge';
+                            container.appendChild(badge);
+                        }
+                        badge.textContent = `x${count}`;
+                    } else {
+                        img.style.opacity = '1';
+                        if (badge) badge.remove();
+                    }
+                });
+            };
+
+            const displayResults = (cards) => {
+                resultsGrid.innerHTML = '';
+                if (!cards || cards.length === 0) {
+                    statusMessage.innerHTML = '<p>Nenhuma carta encontrada.</p>';
+                    statusMessage.style.display = 'flex';
+                    return;
+                }
+                statusMessage.style.display = 'none';
+                cards.forEach(card => {
+                    if (card.images && card.images.large) resultsGrid.appendChild(createCardElement(card));
+                });
+                updateSearchResultsUI();
+            };
+
+            const addCardToCollection = (card, cardElement) => {
+                const cardRect = cardElement.getBoundingClientRect();
+                const collectionRect = window.innerWidth < 1024 ? document.getElementById('collection-grid-mobile').getBoundingClientRect() : document.getElementById('collection-grid-desktop').getBoundingClientRect();
+                const flyingCard = cardElement.cloneNode();
+                flyingCard.style.cssText = `position:fixed; left:${cardRect.left}px; top:${cardRect.top}px; width:${cardRect.width}px; height:${cardRect.height}px; z-index:1000; transition:all 0.5s cubic-bezier(0.5, -0.5, 0.2, 1.5);`;
+                document.body.appendChild(flyingCard);
+                setTimeout(() => {
+                    flyingCard.style.left = `${collectionRect.left + 20}px`;
+                    flyingCard.style.top = `${collectionRect.top + 20}px`;
+                    flyingCard.style.width = '0px';
+                    flyingCard.style.height = '0px';
+                    flyingCard.style.opacity = '0';
+                    flyingCard.style.transform = 'rotate(360deg)';
+                }, 50);
+                setTimeout(() => {
+                    collection.push(card);
+                    updateCollectionCounts();
+                    renderCollection();
+                    saveCollectionToLocalStorage();
+                    showStatus(`${card.name} adicionado!`, 'green', 2000);
+                    flyingCard.remove();
+                    updateSearchResultsUI();
+                }, 550);
+            };
+
+            const removeCardFromCollection = (index) => {
+                const name = collection[index].name;
+                collection.splice(index, 1);
+                updateCollectionCounts();
+                renderCollection();
+                saveCollectionToLocalStorage();
+                showStatus(`${name} removido.`, 'yellow', 2000);
+                updateSearchResultsUI();
+            };
+
+            const createCollectionCard = (card, index) => {
+                const container = document.createElement('div');
+                container.className = 'relative group aspect-[3/4] w-20 h-auto flex-shrink-0';
+                container.innerHTML = `<img src="${card.images.small}" alt="${card.name}" loading="lazy" class="w-full h-full object-cover rounded-md cursor-pointer border border-border-color transition-transform group-hover:scale-105"><div class="absolute -top-1 -right-1 flex flex-col space-y-1 opacity-0 group-hover:opacity-100 transition-opacity"><button class="zoom-btn bg-accent-glow/80 hover:bg-accent-glow text-white p-1 rounded-full backdrop-blur-sm" title="Ver carta"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button><button class="delete-btn bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-full backdrop-blur-sm" title="Remover carta"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg></button></div>`;
+                container.querySelector('.zoom-btn').addEventListener('click', (e) => { e.stopPropagation(); openZoomView(card); });
+                container.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); removeCardFromCollection(index); });
+                return container;
+            };
+
+            const renderCollection = () => {
+                collectionGridDesktop.innerHTML = '';
+                collectionGridMobile.innerHTML = '';
+                const hasCards = collection.length > 0;
+                collectionPlaceholderDesktop.style.display = hasCards ? 'none' : 'flex';
+                collectionPlaceholderMobile.style.display = hasCards ? 'none' : 'flex';
+                collection.forEach((card, index) => {
+                    if (card.images && card.images.small) {
+                        collectionGridDesktop.appendChild(createCollectionCard(card, index));
+                        collectionGridMobile.appendChild(createCollectionCard(card, index));
+                    }
+                });
+                cardCount.textContent = collection.length;
+            };
+
+            const setupModal = (modal, openBtn, closeBtn, openCallback) => {
+                if (openBtn) openBtn.addEventListener('click', () => { if (openCallback) openCallback(); else modal.style.display = 'flex'; });
+                if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+                modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+            };
+
+            const openZoomView = (card) => {
+                document.getElementById('zoomed-image').src = card.images.large;
+                document.getElementById('zoomed-image').alt = card.name;
+                imageZoomModal.style.display = 'flex';
+            };
+
+            const showConfirm = (msg) => new Promise(res => {
+                const modal = document.getElementById('confirm-modal');
+                modal.querySelector('#confirm-message').textContent = msg;
+                modal.style.display = 'flex';
+                const ok = modal.querySelector('#confirm-ok-btn');
+                const cancel = modal.querySelector('#confirm-cancel-btn');
+                const cleanup = (r) => {
+                    modal.style.display = 'none';
+                    ok.removeEventListener('click', okListener);
+                    cancel.removeEventListener('click', cancelListener);
+                    res(r);
+                };
+                const okListener = () => cleanup(true);
+                const cancelListener = () => cleanup(false);
+                ok.addEventListener('click', okListener);
+                cancel.addEventListener('click', cancelListener);
+            });
+
+            const switchPage = (targetId) => {
+                navLinks.forEach(nav => nav.classList.toggle('active', nav.dataset.target === targetId));
+                pages.forEach(page => page.classList.toggle('active', page.id === targetId));
+                window.history.pushState({}, '', `#${targetId.replace('page-', '')}`);
+            };
+            
+            const populateDeckSuggestions = () => {
+                const topDecks = [ "Charizard ex", "Dragapult ex", "Raging Bolt ex", "Gardevoir ex", "Lugia VSTAR", "Miraidon ex", "Gholdengo ex", "Lost Zone Box", "Chien-Pao ex", "Arceus VSTAR Giratina", "Snorlax Stall", "Iron Hands ex", "Great Tusk Mill", "Iron Valiant ex", "Roaring Moon ex", "Klawf / Hisuian Electrode V", "Regidrago VSTAR", "Mew VMAX", "Comfey / Sableye", "Rapid Strike Urshifu VMAX", "Blastoise ex", "Meowscarada ex", "Quaquaval ex", "Skeledirge ex", "Zoroark Box", "Regieleki VMAX", "Dondozo / Tatsugiri", "Wugtrio Mill", "Spidops ex", "Toedscruel ex" ];
+                topDecks.forEach(name => {
+                    const card = document.createElement('div');
+                    card.className = 'suggestion-card p-4 rounded-lg cursor-pointer flex flex-col justify-between';
+                    card.innerHTML = `<h3 class="font-bold text-lg text-text-primary">${name}</h3><p class="text-sm text-text-secondary mt-2">Clique para ver a lista</p>`;
+                    card.addEventListener('click', () => showDeckDetails(name));
+                    deckSuggestionsGrid.appendChild(card);
+                });
+            };
+
+            const showDeckDetails = async (deckName) => {
+                switchPage('page-deck-details');
+                deckDetailsTitle.textContent = deckName;
+                deckDetailsContent.innerHTML = '<div class="flex justify-center"><div class="loader"></div></div>';
+                
+                const prompt = `Você é um especialista em Pokémon TCG. Crie uma lista de deck competitiva e típica para o arquétipo "${deckName}" no formato Padrão atual. A resposta deve ser em português e formatada em Markdown, com a lista de 60 cartas agrupada por tipo (Pokémon, Treinador, Energia). Para cada carta, forneça a quantidade, o nome, o código da expansão e o número da carta no formato: 4 Nome da Carta CÓDIGO NÚMERO. Exemplo: 4 Charizard ex OBF 125. No final, adicione um parágrafo curto chamado "Estratégia do Deck".`;
+                const responseText = await callGeminiAPI(prompt);
+                
+                const tcgLiveCode = parseForTcgLive(responseText);
+                const htmlContent = responseText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/### (.*?)(<br>|$)/g, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>');
+                
+                let exportHtml = '';
+                if (tcgLiveCode) {
+                    exportHtml = `
+                        <div class="mt-6">
+                            <h3 class="text-lg font-bold text-accent-glow">Código para TCG Live</h3>
+                            <div class="bg-bg-dark p-3 rounded-lg mt-2">
+                                <pre class="text-sm whitespace-pre-wrap break-all custom-scrollbar">${tcgLiveCode}</pre>
+                            </div>
+                            <button class="btn btn-primary w-full mt-3 font-semibold py-2 px-4 rounded-lg" onclick="copyToClipboard(this.previousElementSibling.querySelector('pre').textContent, this)">Copiar para o Jogo</button>
+                        </div>`;
+                }
+                
+                deckDetailsContent.innerHTML = htmlContent + exportHtml;
+            };
+            
+            const parseForTcgLive = (markdownText) => {
+                const lines = markdownText.split('\n');
+                const regex = /^\*?\s*(\d+)\s+(.*?)\s+([A-Z0-9]{2,3})\s+(\d+)\s*\*?$/;
+                let tcgLiveList = [];
+                for (const line of lines) {
+                    const match = line.trim().match(regex);
+                    if (match) {
+                        const [_, quantity, name, set, number] = match;
+                        tcgLiveList.push(`* ${quantity} ${name} ${set} ${number}`);
+                    }
+                }
+                return tcgLiveList.length > 0 ? tcgLiveList.join('\n') : null;
+            };
+
+            window.copyToClipboard = (text, button) => {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                const originalText = button.textContent;
+                button.textContent = 'Copiado!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            };
+
+
+            // --- Event Listeners ---
+            navLinks.forEach(link => link.addEventListener('click', (e) => { e.preventDefault(); switchPage(link.dataset.target); }));
+            backToSuggestionsBtn.addEventListener('click', () => switchPage('page-suggestions'));
+            searchInput.addEventListener('input', (e) => { clearTimeout(searchTimeout); searchTimeout = setTimeout(() => searchCards(e.target.value), 500); });
+            clearCollectionBtn.addEventListener('click', async () => { const conf = await showConfirm('Tem a certeza que quer limpar toda a coleção?'); if (conf) { collection = []; updateCollectionCounts(); renderCollection(); saveCollectionToLocalStorage(); showStatus('Coleção limpa!', 'red'); updateSearchResultsUI(); } });
+            downloadButton.addEventListener('click', () => { if (collection.length === 0) { showStatus('A sua coleção está vazia!', 'red'); return; } let csv = "data:text/csv;charset=utf-8,ID,Nome,Set\r\n"; collection.forEach(c => { const row = [c.id, `"${c.name.replace(/"/g, '""')}"`, `"${c.set.name.replace(/"/g, '""')}"`].join(","); csv += row + "\r\n"; }); const link = document.createElement("a"); link.href = encodeURI(csv); link.download = "minha-colecao-pokemon.csv"; document.body.appendChild(link); link.click(); document.body.removeChild(link); });
+            uploadButton.addEventListener('click', () => uploadInput.click());
+            uploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (ev) => { const text = ev.target.result; const rows = text.split('\n').slice(1); const ids = rows.map(row => row.split(',')[0]).filter(id => id && id.trim()); if (ids.length > 0) await fetchFullCardsData(ids); else showStatus('Nenhum ID válido encontrado.', 'red'); }; reader.readAsText(file); uploadInput.value = ''; });
+            
+            // Modal Setups
+            setupModal(document.getElementById('gemini-modal'), document.getElementById('gemini-suggest-button'), document.getElementById('gemini-close-button'), async () => {
+                if (collection.length < 40) { showStatus("Adicione pelo menos 40 cartas.", 'red', 4000); return; }
+                const modal = document.getElementById('gemini-modal');
+                modal.style.display = 'flex';
+                modal.querySelector('#gemini-loader').style.display = 'flex';
+                modal.querySelector('#gemini-response-area').style.display = 'none';
+                modal.querySelector('#gemini-export-area').style.display = 'none';
+                const list = collection.map(c => `- ${c.name} (${c.set.id} ${c.number})`).join('\n');
+                const prompt = `Você é um especialista em Pokémon TCG. Com base na seguinte lista de cartas (com código da expansão e número), crie uma sugestão de deck de 60 cartas. A resposta deve ser em português e formatada em Markdown.\n\nRegras:\n1. O deck deve ter 60 cartas.\n2. Para cada carta, forneça a quantidade, o nome, o código da expansão e o número da carta no formato: 4 Nome da Carta CÓDIGO NÚMERO. Exemplo: 4 Charizard ex OBF 125.\n3. Forneça a lista agrupada por tipo (Pokémon, Treinador, Energia).\n4. Adicione um parágrafo "Estratégia do Deck".\n\nLista de cartas disponíveis:\n${list}`;
+                const res = await callGeminiAPI(prompt);
+                modal.querySelector('#gemini-loader').style.display = 'none';
+                const responseArea = modal.querySelector('#gemini-response-area');
+                responseArea.innerHTML = res.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/### (.*?)(<br>|$)/g, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>');
+                responseArea.style.display = 'block';
+                const tcgLiveCode = parseForTcgLive(res);
+                if (tcgLiveCode) {
+                    modal.querySelector('#gemini-export-code').textContent = tcgLiveCode;
+                    modal.querySelector('#gemini-export-area').style.display = 'block';
+                }
+            });
+            setupModal(document.getElementById('text-deck-modal'), document.getElementById('text-deck-button'), document.getElementById('text-deck-close-button'));
+            document.getElementById('generate-from-text-button').addEventListener('click', async () => {
+                const modal = document.getElementById('text-deck-modal');
+                const input = modal.querySelector('#text-deck-input').value;
+                if (input.trim().length < 10) { showStatus("Por favor, insira uma lista de cartas.", 'red'); return; }
+                modal.querySelector('#text-deck-loader').style.display = 'flex';
+                modal.querySelector('#text-deck-response-area').style.display = 'none';
+                modal.querySelector('#text-deck-export-area').style.display = 'none';
+                const prompt = `Você é um especialista em Pokémon TCG. Com base na seguinte lista, crie um deck competitivo de 60 cartas. A resposta deve ser em português e formatada em Markdown.\n\nRegras:\n1. O deck final deve ter 60 cartas.\n2. Use as cartas da lista como base, otimizando as quantidades. Para cada carta, adicione o código da expansão e o número da carta no formato: 4 Nome da Carta CÓDIGO NÚMERO. Você pode precisar buscar essa informação.\n3. Forneça a lista agrupada por tipo.\n4. Escreva um parágrafo "Estratégia do Deck".\n\nLista:\n${input}`;
+                const res = await callGeminiAPI(prompt);
+                modal.querySelector('#text-deck-loader').style.display = 'none';
+                const responseArea = modal.querySelector('#text-deck-response-area');
+                responseArea.innerHTML = res.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/### (.*?)(<br>|$)/g, '<h3 class="text-lg font-bold mt-4 mb-2">$1</h3>');
+                responseArea.style.display = 'block';
+                const tcgLiveCode = parseForTcgLive(res);
+                if (tcgLiveCode) {
+                    modal.querySelector('#text-deck-export-code').textContent = tcgLiveCode;
+                    modal.querySelector('#text-deck-export-area').style.display = 'block';
+                }
+            });
+            setupModal(imageZoomModal, null, document.getElementById('close-zoom-button'));
+            
+            document.getElementById('copy-gemini-code-btn').addEventListener('click', (e) => copyToClipboard(document.getElementById('gemini-export-code').textContent, e.target));
+            document.getElementById('copy-text-deck-code-btn').addEventListener('click', (e) => copyToClipboard(document.getElementById('text-deck-export-code').textContent, e.target));
+
+            // --- Initial Load ---
+            loadCollectionFromLocalStorage();
+            populateDeckSuggestions();
+        });
+    </script>
+</body>
+</html>
